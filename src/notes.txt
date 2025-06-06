@@ -1,0 +1,5 @@
+each column contains numerical values - 0 (corner), 1 (wall), 2 (ice), 3 (enemy), 4 (player), 5 (fruit), 6 blank, 7 building (0 being igloo, 1 being snowman),
+the corner and wall also contain a second digit with the colour (0 = blue, 1 = green, 2 = brown, 3=blue dotted wall)
+the enemy contains 3 values (0 = halo, 1 = icebreaker, 2 = monster)
+the player contains 2 values (0 = player 1, 1 = player 2)
+the fruit contains 4 values (0 = banana, 1 = grapes, 2 = pineapple, 3 = watermelon)
