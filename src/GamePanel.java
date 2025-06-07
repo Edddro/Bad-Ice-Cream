@@ -21,20 +21,19 @@ public class GamePanel extends JPanel implements ActionListener {
     private final int TILE_SIZE = 35;
     private final int ROWS = 18;
     private final int COLS = 18;
-    private final int ANIM_DELAY = 200;
 
     private final int[][] map = new int[ROWS][COLS];
 
-    private final Timer animationTimer;
     private int animFrame = 0;
     private final String player1;
     private final String player2;
+    private int player1X, player1Y, player2X, player2Y;
 
-    private final Map<String, List<BufferedImage>> enemyAnimations = new HashMap<>();
     private final Map<String, List<BufferedImage>> fruitAnimations = new HashMap<>();
     private final Map<String, List<BufferedImage>> playerAnimations = new HashMap<>();
     private final Map<String, BufferedImage> staticImages = new HashMap<>();
     private final List<int[]> snowBumpPositions = new ArrayList<>();
+    private final List<Enemy> enemies = new ArrayList<>();
 
     public GamePanel(int level, String player1, String player2) {
         setPreferredSize(new Dimension(COLS * TILE_SIZE, ROWS * TILE_SIZE));
@@ -45,7 +44,8 @@ public class GamePanel extends JPanel implements ActionListener {
         this.player1 = player1;
         this.player2 = player2;
 
-        animationTimer = new Timer(ANIM_DELAY, this);
+        int ANIM_DELAY = 200;
+        Timer animationTimer = new Timer(ANIM_DELAY, this);
         animationTimer.start();
     }
 
@@ -60,12 +60,6 @@ public class GamePanel extends JPanel implements ActionListener {
             staticImages.put("ice", trimWhitespace(ImageIO.read(new File("../graphics/images/map/ice/ice10.png"))));
             staticImages.put("building_0", trimWhitespace(ImageIO.read(new File("../graphics/images/map/buildings/igloo.png"))));
             staticImages.put("building_1", trimWhitespace(ImageIO.read(new File("../graphics/images/map/buildings/snowman.png"))));
-
-            String[] enemyTypes = {"halo", "icebreaker", "monster"};
-            for (String enemy : enemyTypes) {
-                List<BufferedImage> frames = loadAnimationFrames("../graphics/images/enemies/" + enemy + "/down");
-                enemyAnimations.put(enemy, frames);
-            }
 
             String[] fruitTypes = {"banana", "grapes", "pineapple", "watermelon"};
             for (String fruit : fruitTypes) {
@@ -125,6 +119,24 @@ public class GamePanel extends JPanel implements ActionListener {
                         map[row][col] = Integer.parseInt(tokens[col]);
                     } catch (NumberFormatException e) {
                         map[row][col] = 0;
+                    }
+
+                    int tile = map[row][col];
+                    int type = tile / 10;
+                    int subtype = tile % 10;
+
+                    if (type == 3 && subtype >= 0 && subtype < 3) {
+                        int x = col * TILE_SIZE;
+                        int y = row * TILE_SIZE;
+
+                        Enemy enemy = switch (subtype) {
+                            case 0 -> new Halo(x, y, TILE_SIZE);
+                            case 1 -> new IceBreaker(x, y, TILE_SIZE);
+                            case 2 -> new Monster(x, y, TILE_SIZE);
+                            default -> null;
+                        };
+
+                        enemies.add(enemy);
                     }
                 }
             }
@@ -186,13 +198,22 @@ public class GamePanel extends JPanel implements ActionListener {
                     }
                     case 1 -> drawImage(g, "wall_" + subtype, x, y, TILE_SIZE, TILE_SIZE);
                     case 2 -> drawImage(g, "ice", x, y, TILE_SIZE, TILE_SIZE);
-                    case 3 -> drawEnemy(g, subtype, x, y);
-                    case 4 -> drawPlayer(g, subtype, x, y);
+                    case 3 -> drawEnemy(g);
+                    case 4 -> {
+                        drawPlayer(g, subtype, x, y);
+                        if (subtype == 0) {
+                            player1X = x;
+                            player1Y = y;
+                        } else {
+                            player2X = x;
+                            player2Y = y;
+                        }
+                    }
                     case 5 -> drawFruit(g, subtype, x, y);
                     case 6 -> {}
                     case 7 -> {
-                       if (row % 4 == 0 && col % 4 == 0) {
-                           drawImage(g, "building_" + subtype, x - TILE_SIZE, (int)(y - TILE_SIZE * 1.5), TILE_SIZE * 4, TILE_SIZE * 4);
+                        if (row % 4 == 0 && col % 4 == 0) {
+                            drawImage(g, "building_" + subtype, x - TILE_SIZE, (int)(y - TILE_SIZE * 1.5), TILE_SIZE * 4, TILE_SIZE * 4);
                         }
                     }
                 }
@@ -234,35 +255,10 @@ public class GamePanel extends JPanel implements ActionListener {
         return image.getSubimage(left, top, right - left + 1, bottom - top + 1);
     }
 
-    private void drawEnemy(Graphics g, int subtype, int x, int y) {
-        String[] types = {"halo", "icebreaker", "monster"};
-        if (subtype >= 0 && subtype < types.length) {
-            List<BufferedImage> frames = enemyAnimations.get(types[subtype]);
-            if (frames != null && !frames.isEmpty()) {
-                BufferedImage frame = frames.get(animFrame % frames.size());
-
-                int height = TILE_SIZE;
-                int width = TILE_SIZE;
-                int yOffset = 0;
-
-                if (types[subtype].equals("halo")) {
-                    width = (int)(TILE_SIZE * 1.5);
-                    height = (int)(TILE_SIZE * 1.5);
-                    yOffset = (int)(TILE_SIZE * 0.5);
-                }
-
-                if (types[subtype].equals("icebreaker")) {
-                    height = TILE_SIZE * 2;
-                    yOffset = -TILE_SIZE;
-                }
-
-                if (types[subtype].equals("monster")) {
-                    width = (int)(TILE_SIZE * 1.2);
-                    height = (int)(TILE_SIZE * 1.2);
-                }
-
-                g.drawImage(frame, x, y + yOffset, width, height, null);
-            }
+    private void drawEnemy(Graphics g) {
+        for (Enemy enemy : enemies) {
+            enemy.update(map, player1X, player1Y, player2X, player2Y);
+            enemy.draw(g);
         }
     }
 

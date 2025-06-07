@@ -116,6 +116,7 @@ public class LevelSelectScreen extends JPanel {
                     dripTimer.stop();
                     JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(LevelSelectScreen.this);
                     topFrame.getContentPane().removeAll();
+                    Main.stopSound();
                     topFrame.getContentPane().add(new GamePanel(level, player1Flavour, player2Flavour));
                     topFrame.revalidate();
                     topFrame.repaint();
