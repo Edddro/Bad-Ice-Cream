@@ -1,15 +1,15 @@
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.awt.Point;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import javax.imageio.ImageIO;
 
 public class Ice {
-    private static final int OBSTACLE = 1;
-
     private static final Map<Integer, List<BufferedImage>> iceFormAnimations = new HashMap<>();
     private static final Map<Integer, List<BufferedImage>> iceBreakAnimations = new HashMap<>();
+    private static final Map<Point, Integer> storedFruits = new HashMap<>();
 
     private static List<BufferedImage> loadFrames(String path) {
         List<BufferedImage> frames = new ArrayList<>();
@@ -23,13 +23,12 @@ public class Ice {
         return frames;
     }
 
-    // Converts (dx, dy) direction to index: 0 = up, 1 = right, 2 = down, 3 = left
     private static int directionToIndex(int dx, int dy) {
         if (dx == 0 && dy == -1) return 0; // up
         if (dx == 1 && dy == 0) return 1;  // right
         if (dx == 0 && dy == 1) return 2;  // down
         if (dx == -1 && dy == 0) return 3; // left
-        return 2; // default to down
+        return 2;
     }
 
     public static List<BufferedImage> getIceFormFrames(int dx, int dy) {
@@ -48,24 +47,42 @@ public class Ice {
         return iceBreakAnimations.get(dir);
     }
 
-    public static void formIce(int startX, int startY, int dx, int dy, int[][] map) {
-        int x = startX + dx;
-        int y = startY + dy;
-        while (isValid(map, y, x) && canFormIce(map[y][x])) {
-            map[y][x] = 2;
-            x += dx;
-            y += dy;
+    public static void formIce(int x, int y, int dx, int dy, int[][] map) {
+        int nextX = x + dx;
+        int nextY = y + dy;
+
+        if (!isValid(map, nextY, nextX) || !canFormIce(map[nextY][nextX])) {
+            return;
         }
+
+        int currentTile = map[nextY][nextX];
+
+        if (currentTile / 100 == 5) {
+            Point key = new Point(nextX, nextY);
+            storedFruits.put(key, currentTile);
+        }
+
+        map[nextY][nextX] = 2;
+
+        formIce(nextX, nextY, dx, dy, map);
     }
 
-    public static void breakIce(int startX, int startY, int dx, int dy, int[][] map) {
-        int x = startX + dx;
-        int y = startY + dy;
-        while (isValid(map, y, x) && map[y][x] == 2) {
-            map[y][x] = 6;
-            x += dx;
-            y += dy;
+    public static void breakIce(int x, int y, int dx, int dy, int[][] map) {
+        int nextX = x + dx;
+        int nextY = y + dy;
+
+        if (!isValid(map, nextY, nextX) || map[nextY][nextX] != 2) {
+            return;
         }
+
+        Point key = new Point(nextX, nextY);
+        if (storedFruits.containsKey(key)) {
+            map[nextY][nextX] = storedFruits.remove(key);
+        } else {
+            map[nextY][nextX] = 6;
+        }
+
+        breakIce(nextX, nextY, dx, dy, map);
     }
 
     public static void drawFormAnimation(Graphics g, int x, int y, int tileSize, int frameIndex, int[] direction) {

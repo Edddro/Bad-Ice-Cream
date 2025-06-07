@@ -21,12 +21,16 @@ public class GamePanel extends JPanel implements ActionListener {
     private final int TILE_SIZE = 35;
     private final int ROWS = 18;
     private final int COLS = 18;
+    private int fruitACount = 0;
+    private int fruitBCount = 0;
 
     private final int[][] map = new int[ROWS][COLS];
 
     private int animFrame = 0;
     private final String player1;
     private final String player2;
+    private int player1Score = 0;
+    private int player2Score = 0;
     private int player1X, player1Y, player2X, player2Y;
 
     private final Map<String, List<BufferedImage>> fruitAnimations = new HashMap<>();
@@ -47,6 +51,7 @@ public class GamePanel extends JPanel implements ActionListener {
         int ANIM_DELAY = 200;
         Timer animationTimer = new Timer(ANIM_DELAY, this);
         animationTimer.start();
+        Main.playSound("../graphics/sounds/GameMusic.wav");
     }
 
     private void loadImages() {
@@ -138,6 +143,14 @@ public class GamePanel extends JPanel implements ActionListener {
 
                         enemies.add(enemy);
                     }
+
+                    if (type / 10 == 5) {
+                        if (subtype % 10 == 0) {
+                            fruitACount++;
+                        } else if (subtype % 10 == 1) {
+                            fruitBCount++;
+                        }
+                    }
                 }
             }
         } catch (FileNotFoundException e) {
@@ -185,6 +198,9 @@ public class GamePanel extends JPanel implements ActionListener {
                 if (tile < 10) {
                     type = tile;
                     subtype = 0;
+                } else if (tile >= 100) {
+                    type = tile / 100;
+                    subtype = tile % 100;
                 } else {
                     type = tile / 10;
                     subtype = tile % 10;
@@ -210,7 +226,6 @@ public class GamePanel extends JPanel implements ActionListener {
                         }
                     }
                     case 5 -> drawFruit(g, subtype, x, y);
-                    case 6 -> {}
                     case 7 -> {
                         if (row % 4 == 0 && col % 4 == 0) {
                             drawImage(g, "building_" + subtype, x - TILE_SIZE, (int)(y - TILE_SIZE * 1.5), TILE_SIZE * 4, TILE_SIZE * 4);
@@ -263,17 +278,22 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     private void drawFruit(Graphics g, int subtype, int x, int y) {
-        String[] fruits = {"banana", "grapes", "pineapple", "watermelon"};
-        if (subtype >= 0 && subtype < fruits.length) {
-            List<BufferedImage> frames = fruitAnimations.get(fruits[subtype]);
-            if (frames != null && !frames.isEmpty()) {
-                BufferedImage frame = frames.get(animFrame % frames.size());
+        int fruitIndex = subtype / 10;
+        int fruitSet = subtype % 10;
 
-                if (fruits[subtype].equals("watermelon")) {
-                    int offset = (int)(TILE_SIZE * 0.18);
-                    g.drawImage(frame, x + offset, y + offset, TILE_SIZE - 10, TILE_SIZE - 10, null);
-                } else {
-                    g.drawImage(frame, x, y, TILE_SIZE - 10, TILE_SIZE - 10, null);
+        if ((fruitSet == 0 && fruitACount > 0) || (fruitSet == 1 && fruitACount == 0)) {
+            String[] fruits = {"banana", "grapes", "pineapple", "watermelon"};
+            if (fruitIndex >= 0 && fruitIndex < fruits.length) {
+                List<BufferedImage> frames = fruitAnimations.get(fruits[fruitIndex]);
+                if (frames != null && !frames.isEmpty()) {
+                    BufferedImage frame = frames.get(animFrame % frames.size());
+
+                    if (fruits[fruitIndex].equals("watermelon")) {
+                        int offset = (int)(TILE_SIZE * 0.18);
+                        g.drawImage(frame, x + offset, y + offset, TILE_SIZE - 10, TILE_SIZE - 10, null);
+                    } else {
+                        g.drawImage(frame, x, y, TILE_SIZE - 10, TILE_SIZE - 10, null);
+                    }
                 }
             }
         }
@@ -285,6 +305,33 @@ public class GamePanel extends JPanel implements ActionListener {
         if (frames != null && !frames.isEmpty()) {
             g.drawImage(frames.get(animFrame % frames.size()), x, y, TILE_SIZE, TILE_SIZE, null);
         }
+    }
+
+    private void checkFruitCollision() {
+        int p1Row = player1Y / TILE_SIZE;
+        int p1Col = player1X / TILE_SIZE;
+        int p2Row = player2Y / TILE_SIZE;
+        int p2Col = player2X / TILE_SIZE;
+
+        if (isValidPosition(p1Row, p1Col)) {
+            int tile = map[p1Row][p1Col];
+            if (tile / 100 == 5) {
+                player1Score++;
+                map[p1Row][p1Col] = 0;
+            }
+        }
+
+        if (isValidPosition(p2Row, p2Col)) {
+            int tile = map[p2Row][p2Col];
+            if (tile / 100 == 5) {
+                player2Score++;
+                map[p2Row][p2Col] = 0;
+            }
+        }
+    }
+
+    private boolean isValidPosition(int row, int col) {
+        return row >= 0 && row < ROWS && col >= 0 && col < COLS;
     }
 
     @Override

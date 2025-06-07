@@ -22,6 +22,7 @@ public abstract class Enemy {
     protected Map<String, List<BufferedImage>> animations;
     protected int animFrame;
     protected long lastMoveTime;
+    protected static final Map<Point, Integer> storedFruits = new HashMap<>();
 
     public Enemy(int x, int y, int tileSize) {
         this.x = x;
@@ -56,7 +57,7 @@ public abstract class Enemy {
     }
 
     protected boolean isObstacle(int tileValue) {
-        return tileValue == 6 || tileValue / 10 == 5 || tileValue / 10 == 4 || tileValue / 10 == 3;
+        return tileValue == 6 || tileValue / 100 == 5 || tileValue / 10 == 4 || tileValue / 10 == 3;
     }
 
     protected boolean collidesWithPlayer(int playerX, int playerY) {
@@ -86,8 +87,8 @@ public abstract class Enemy {
 
     protected Point closestPlayer(int player1X, int player1Y, int player2X, int player2Y) {
         List<Point> alivePlayers = new ArrayList<>();
-        if (!PlayerStatus.player1Collided) alivePlayers.add(new Point(player1X, player1Y));
-        if (!PlayerStatus.player2Collided) alivePlayers.add(new Point(player2X, player2Y));
+        if (!Helper.player1Collided) alivePlayers.add(new Point(player1X, player1Y));
+        if (!Helper.player2Collided) alivePlayers.add(new Point(player2X, player2Y));
 
         if (alivePlayers.isEmpty()) return null;
 
@@ -119,7 +120,7 @@ class Monster extends Enemy {
     public void update(int[][] map, int player1X, int player1Y, int player2X, int player2Y) {
         if (System.currentTimeMillis() - lastMoveTime < 275) return;
 
-        map[y / tileSize][x / tileSize] = 6;
+        Helper.restoreFruit(map, x / tileSize, y / tileSize);
         int[] d = directionVector();
         int newX = x + d[0] * tileSize;
         int newY = y + d[1] * tileSize;
@@ -134,17 +135,18 @@ class Monster extends Enemy {
             turnRight();
         }
 
+        Helper.storeFruit(map, x / tileSize, y / tileSize);
         map[y / tileSize][x / tileSize] = 32;
         animFrame++;
         lastMoveTime = System.currentTimeMillis();
 
         if (collidesWithPlayer(player1X, player1Y)) {
-            PlayerStatus.player1Collided = true;
+            Helper.player1Collided = true;
         }
         if (collidesWithPlayer(player2X, player2Y)) {
-            PlayerStatus.player2Collided = true;
+            Helper.player2Collided = true;
         }
-        PlayerStatus.checkGameOver();
+        Helper.checkGameOver();
     }
 
     private void turnRight() {
@@ -220,23 +222,24 @@ class Halo extends Enemy {
                 else if (dy < 0) direction = "up";
                 else direction = "down";
 
-                map[y / tileSize][x / tileSize] = 6;
+                Helper.restoreFruit(map, x / tileSize, y / tileSize);
                 x = next.x * tileSize;
                 y = next.y * tileSize;
             }
         }
 
+        Helper.storeFruit(map, x / tileSize, y / tileSize);
         map[y / tileSize][x / tileSize] = 30;
         animFrame++;
         lastMoveTime = System.currentTimeMillis();
 
         if (collidesWithPlayer(player1X, player1Y)) {
-            PlayerStatus.player1Collided = true;
+            Helper.player1Collided = true;
         }
         if (collidesWithPlayer(player2X, player2Y)) {
-            PlayerStatus.player2Collided = true;
+            Helper.player2Collided = true;
         }
-        PlayerStatus.checkGameOver();
+        Helper.checkGameOver();
     }
 
     private Queue<Point> findPath(int[][] map, int sx, int sy, int ex, int ey) {
@@ -349,23 +352,24 @@ class IceBreaker extends Enemy {
                 breakCol = col;
                 breakFrames = loadFrames("../graphics/images/enemies/icebreaker/" + direction + "/break_ice");
             } else if (isObstacle(nextTile)) {
-                map[y / tileSize][x / tileSize] = 6;
+                Helper.restoreFruit(map, x / tileSize, y / tileSize);
                 x = newX;
                 y = newY;
             }
         }
 
+        Helper.storeFruit(map, x / tileSize, y / tileSize);
         map[y / tileSize][x / tileSize] = 31;
         animFrame++;
         lastMoveTime = System.currentTimeMillis();
 
         if (collidesWithPlayer(player1X, player1Y)) {
-            PlayerStatus.player1Collided = true;
+            Helper.player1Collided = true;
         }
         if (collidesWithPlayer(player2X, player2Y)) {
-            PlayerStatus.player2Collided = true;
+            Helper.player2Collided = true;
         }
-        PlayerStatus.checkGameOver();
+        Helper.checkGameOver();
     }
 
     @Override
@@ -393,13 +397,29 @@ class IceBreaker extends Enemy {
     }
 }
 
-class PlayerStatus {
+class Helper {
     public static boolean player1Collided = false;
     public static boolean player2Collided = false;
 
     public static void checkGameOver() {
         if (player1Collided && player2Collided) {
             System.out.println("Game Over");
+        }
+    }
+
+    public static void storeFruit(int[][] map, int x, int y) {
+        int currentTile = map[y][x];
+        if (currentTile / 100 == 5) {
+            Enemy.storedFruits.put(new Point(x, y), currentTile);
+        }
+    }
+
+    public static void restoreFruit(int[][] map, int x, int y) {
+        Point key = new Point(x, y);
+        if (Enemy.storedFruits.containsKey(key)) {
+            map[y][x] = Enemy.storedFruits.remove(key);
+        } else {
+            map[y][x] = 6;
         }
     }
 }
