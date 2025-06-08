@@ -1,9 +1,8 @@
 import javax.swing.*;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Graphics;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -17,7 +16,7 @@ import java.util.Comparator;
 import java.util.Scanner;
 import javax.imageio.ImageIO;
 
-public class GamePanel extends JPanel implements ActionListener {
+public class GamePanel extends JPanel implements ActionListener, KeyListener {
     private final int TILE_SIZE = 35;
     private final int ROWS = 18;
     private final int COLS = 18;
@@ -32,6 +31,16 @@ public class GamePanel extends JPanel implements ActionListener {
     private int player1Score = 0;
     private int player2Score = 0;
     private int player1X, player1Y, player2X, player2Y;
+    private String player1Dir = "down";
+    private String player2Dir = "down";
+    boolean player1Right = false;
+    boolean player2Right = false;
+    public static boolean gameOver = false;
+    public boolean victory = false;
+    public static boolean player1GameOver = false;
+    public static boolean player2GameOver = false;
+    public static int player1GameOverFrame = 0;
+    public static int player2GameOverFrame = 0;
 
     private final Map<String, List<BufferedImage>> fruitAnimations = new HashMap<>();
     private final Map<String, List<BufferedImage>> playerAnimations = new HashMap<>();
@@ -47,6 +56,9 @@ public class GamePanel extends JPanel implements ActionListener {
         loadLevelFromFile(level);
         this.player1 = player1;
         this.player2 = player2;
+        setFocusable(true);
+        addKeyListener(this);
+        requestFocusInWindow();
 
         int ANIM_DELAY = 200;
         Timer animationTimer = new Timer(ANIM_DELAY, this);
@@ -78,9 +90,12 @@ public class GamePanel extends JPanel implements ActionListener {
             }
 
             String[] playerTypes = {"vanilla", "chocolate", "strawberry"};
+            String[] playerStates = {"up", "down", "side", "game_over", "victory"};
             for (String player : playerTypes) {
-                List<BufferedImage> frames = loadAnimationFrames("../graphics/images/players/" + player + "/down");
-                playerAnimations.put(player, frames);
+                for (String state : playerStates) {
+                    List<BufferedImage> frames = loadAnimationFrames("../graphics/images/players/" + player + "/" + state);
+                    playerAnimations.put(player + "/" + state, frames);
+                }
             }
 
         } catch (IOException e) {
@@ -151,6 +166,16 @@ public class GamePanel extends JPanel implements ActionListener {
                             fruitBCount++;
                         }
                     }
+
+                    if (type == 4) {
+                        if (subtype == 0) {
+                            player1X = col * TILE_SIZE;
+                            player1Y = row * TILE_SIZE;
+                        } else if (subtype == 1) {
+                            player2X = col * TILE_SIZE;
+                            player2Y = row * TILE_SIZE;
+                        }
+                    }
                 }
             }
         } catch (FileNotFoundException e) {
@@ -215,16 +240,7 @@ public class GamePanel extends JPanel implements ActionListener {
                     case 1 -> drawImage(g, "wall_" + subtype, x, y, TILE_SIZE, TILE_SIZE);
                     case 2 -> drawImage(g, "ice", x, y, TILE_SIZE, TILE_SIZE);
                     case 3 -> drawEnemy(g);
-                    case 4 -> {
-                        drawPlayer(g, subtype, x, y);
-                        if (subtype == 0) {
-                            player1X = x;
-                            player1Y = y;
-                        } else {
-                            player2X = x;
-                            player2Y = y;
-                        }
-                    }
+                    case 4 -> drawPlayer(g, subtype, x, y);
                     case 5 -> drawFruit(g, subtype, x, y);
                     case 7 -> {
                         if (row % 4 == 0 && col % 4 == 0) {
@@ -301,10 +317,44 @@ public class GamePanel extends JPanel implements ActionListener {
 
     private void drawPlayer(Graphics g, int subtype, int x, int y) {
         String playerType = (subtype == 1) ? player2 : player1;
-        List<BufferedImage> frames = playerAnimations.get(playerType);
-        if (frames != null && !frames.isEmpty()) {
-            g.drawImage(frames.get(animFrame % frames.size()), x, y, TILE_SIZE, TILE_SIZE, null);
+        String direction = (subtype == 1) ? player2Dir : player1Dir;
+        boolean facingRight = (subtype == 1) ? player2Right : player1Right;
+
+        boolean isGameOver = (subtype == 0) ? player1GameOver : player2GameOver;
+        int gameOverFrame = (subtype == 0) ? player1GameOverFrame : player2GameOverFrame;
+
+        if (isGameOver) {
+            String animationKey = playerType + "/game_over";
+            List<BufferedImage> frames = playerAnimations.get(animationKey);
+            if (frames != null && frames.size() >= 15) {
+                int frameIndex = Math.min(gameOverFrame / 5, 14);
+                g.drawImage(frames.get(frameIndex), x, y, TILE_SIZE, TILE_SIZE, null);
+
+                if (frameIndex < 14) {
+                    if (subtype == 0) player1GameOverFrame++;
+                    else player2GameOverFrame++;
+                }
+            }
+            return;
         }
+
+        String animKey = playerType + "/" + direction;
+        List<BufferedImage> frames = playerAnimations.get(animKey);
+        if (frames != null && !frames.isEmpty()) {
+            BufferedImage frame = frames.get(animFrame % frames.size());
+            if (direction.equals("side") && !facingRight) {
+                frame = flipImage(frame);
+            }
+            g.drawImage(frame, x, y, TILE_SIZE, TILE_SIZE, null);
+        }
+    }
+
+    protected BufferedImage flipImage(BufferedImage img) {
+        BufferedImage flipped = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = flipped.createGraphics();
+        g2.drawImage(img, img.getWidth(), 0, -img.getWidth(), img.getHeight(), null);
+        g2.dispose();
+        return flipped;
     }
 
     private void checkFruitCollision() {
@@ -330,9 +380,134 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    protected int[] directionVector(String direction, Boolean facingRight) {
+        return switch (direction) {
+            case "up" -> new int[]{0, -1};
+            case "down" -> new int[]{0, 1};
+            case "side" -> facingRight ? new int[]{1, 0} : new int[]{-1, 0};
+            default -> new int[]{0, 1};
+        };
+    }
+    private void movePlayer(int player, String playerDir, boolean facingRight) {
+        if ((player == 1 && player1GameOver) || (player == 2 && player2GameOver)) return;
+
+        int[] d = directionVector(playerDir, facingRight);
+
+        int x = (player == 1) ? player1X : player2X;
+        int y = (player == 1) ? player1Y : player2Y;
+
+        int newCol = (x + d[0] * TILE_SIZE) / TILE_SIZE;
+        int newRow = (y + d[1] * TILE_SIZE) / TILE_SIZE;
+
+        if (!isValidPosition(newRow, newCol)) return;
+
+        int tile = map[newRow][newCol];
+
+        if (tile / 100 == 5 || tile == 6) {
+            int oldCol = x / TILE_SIZE;
+            int oldRow = y / TILE_SIZE;
+            map[oldRow][oldCol] = 6;
+
+            if (player == 1) {
+                player1X = newCol * TILE_SIZE;
+                player1Y = newRow * TILE_SIZE;
+                map[newRow][newCol] = 40;
+            } else {
+                player2X = newCol * TILE_SIZE;
+                player2Y = newRow * TILE_SIZE;
+                map[newRow][newCol] = 41;
+            }
+
+            checkFruitCollision();
+        }
+    }
+
+    public static void victory(){
+        System.out.println("VICTORY");
+    }
+
     private boolean isValidPosition(int row, int col) {
         return row >= 0 && row < ROWS && col >= 0 && col < COLS;
     }
+
+    @Override
+    public void keyPressed(java.awt.event.KeyEvent e) {
+        int code = e.getKeyCode();
+
+        // Player 1 controls
+        if (!player1GameOver) {
+            switch (code) {
+                case java.awt.event.KeyEvent.VK_LEFT:
+                    player1Dir = "side";
+                    player1Right = false;
+                    movePlayer(1, player1Dir, player1Right);
+                    break;
+                case java.awt.event.KeyEvent.VK_RIGHT:
+                    player1Dir = "side";
+                    player1Right = true;
+                    movePlayer(1, player1Dir, player1Right);
+                    break;
+                case java.awt.event.KeyEvent.VK_UP:
+                    player1Dir = "up";
+                    movePlayer(1, player1Dir, false);
+                    break;
+                case java.awt.event.KeyEvent.VK_DOWN:
+                    player1Dir = "down";
+                    movePlayer(1, player1Dir, false);
+                    break;
+                case java.awt.event.KeyEvent.VK_SPACE:
+                    int[] d1 = directionVector(player1Dir, player1Right);
+                    int targetTile1 = map[(player1Y + d1[1] * TILE_SIZE) / TILE_SIZE][(player1X + d1[0] * TILE_SIZE) / TILE_SIZE];
+                    if (targetTile1 == 2) {
+                        Ice.breakIce(player1X, player1Y, d1[0], d1[1], map, TILE_SIZE);
+                    } else {
+                        Ice.formIce(player1X, player1Y, d1[0], d1[1], map, TILE_SIZE);
+                    }
+                    break;
+            }
+        }
+
+        // Player 2 controls
+        if (!player2GameOver) {
+            switch (code) {
+                case java.awt.event.KeyEvent.VK_A:
+                    player2Dir = "side";
+                    player2Right = false;
+                    movePlayer(2, player2Dir, player2Right);
+                    break;
+                case java.awt.event.KeyEvent.VK_D:
+                    player2Dir = "side";
+                    player2Right = true;
+                    movePlayer(2, player2Dir, player2Right);
+                    break;
+                case java.awt.event.KeyEvent.VK_W:
+                    player2Dir = "up";
+                    movePlayer(2, player2Dir, false);
+                    break;
+                case java.awt.event.KeyEvent.VK_S:
+                    player2Dir = "down";
+                    movePlayer(2, player2Dir, false);
+                    break;
+                case java.awt.event.KeyEvent.VK_F:
+                    int[] d2 = directionVector(player2Dir, player2Right);
+                    int targetTile2 = map[(player2Y + d2[1] * TILE_SIZE) / TILE_SIZE][(player2X + d2[0] * TILE_SIZE) / TILE_SIZE];
+                    if (targetTile2 == 2) {
+                        Ice.breakIce(player2X, player2Y, d2[0], d2[1], map, TILE_SIZE);
+                    } else {
+                        Ice.formIce(player2X, player2Y, d2[0], d2[1], map, TILE_SIZE);
+                    }
+                    break;
+            }
+        }
+
+        repaint();
+    }
+
+    @Override
+    public void keyReleased(java.awt.event.KeyEvent e) {}
+
+    @Override
+    public void keyTyped(java.awt.event.KeyEvent e) {}
 
     @Override
     public void actionPerformed(ActionEvent e) {

@@ -47,42 +47,79 @@ public class Ice {
         return iceBreakAnimations.get(dir);
     }
 
-    public static void formIce(int x, int y, int dx, int dy, int[][] map) {
-        int nextX = x + dx;
-        int nextY = y + dy;
+    public static void formIce(int x, int y, int dx, int dy, int[][] map, int tileSize) {
+        Timer timer = new Timer();
+        Queue<Point> queue = new LinkedList<>();
+        queue.add(new Point(x / tileSize, y / tileSize));
 
-        if (!isValid(map, nextY, nextX) || !canFormIce(map[nextY][nextX])) {
-            return;
-        }
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                if (queue.isEmpty()) {
+                    timer.cancel();
+                    return;
+                }
 
-        int currentTile = map[nextY][nextX];
+                Point current = queue.poll();
+                int x = current.x;
+                int y = current.y;
 
-        if (currentTile / 100 == 5) {
-            Point key = new Point(nextX, nextY);
-            storedFruits.put(key, currentTile);
-        }
+                int nextX = x + dx;
+                int nextY = y + dy;
 
-        map[nextY][nextX] = 2;
+                if (!isValid(map, nextY, nextX) || !canFormIce(map[nextY][nextX])) {
+                    timer.cancel();
+                    return;
+                }
 
-        formIce(nextX, nextY, dx, dy, map);
+                int currentTile = map[nextY][nextX];
+                Point key = new Point(nextX, nextY);
+
+                if (currentTile / 100 == 5 || (currentTile == 40 && GamePanel.player1GameOver) || (currentTile == 41 && GamePanel.player2GameOver)) {
+                    storedFruits.put(key, currentTile);
+                }
+
+                map[nextY][nextX] = 2;
+                queue.add(new Point(nextX, nextY));
+            }
+        }, 0, 100);
     }
 
-    public static void breakIce(int x, int y, int dx, int dy, int[][] map) {
-        int nextX = x + dx;
-        int nextY = y + dy;
+    public static void breakIce(int x, int y, int dx, int dy, int[][] map, int tileSize) {
+        Timer timer = new Timer();
+        Queue<Point> queue = new LinkedList<>();
+        queue.add(new Point(x / tileSize, y / tileSize));
 
-        if (!isValid(map, nextY, nextX) || map[nextY][nextX] != 2) {
-            return;
-        }
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                if (queue.isEmpty()) {
+                    timer.cancel();
+                    return;
+                }
 
-        Point key = new Point(nextX, nextY);
-        if (storedFruits.containsKey(key)) {
-            map[nextY][nextX] = storedFruits.remove(key);
-        } else {
-            map[nextY][nextX] = 6;
-        }
+                Point current = queue.poll();
+                int x = current.x;
+                int y = current.y;
 
-        breakIce(nextX, nextY, dx, dy, map);
+                int nextX = x + dx;
+                int nextY = y + dy;
+
+                if (!isValid(map, nextY, nextX) || map[nextY][nextX] != 2) {
+                    timer.cancel();
+                    return;
+                }
+
+                Point key = new Point(nextX, nextY);
+                if (storedFruits.containsKey(key)) {
+                    map[nextY][nextX] = storedFruits.remove(key);
+                } else {
+                    map[nextY][nextX] = 6;
+                }
+
+                queue.add(new Point(nextX, nextY));
+            }
+        }, 0, 100);
     }
 
     public static void drawFormAnimation(Graphics g, int x, int y, int tileSize, int frameIndex, int[] direction) {
@@ -106,6 +143,6 @@ public class Ice {
     }
 
     private static boolean canFormIce(int tile) {
-        return tile == 3 || tile == 6;
+        return tile / 100 == 5 || tile == 6 || (tile == 40 && GamePanel.player1GameOver) || (tile == 41 && GamePanel.player2GameOver);
     }
 }

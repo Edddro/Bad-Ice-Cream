@@ -56,8 +56,8 @@ public abstract class Enemy {
         };
     }
 
-    protected boolean isObstacle(int tileValue) {
-        return tileValue == 6 || tileValue / 100 == 5 || tileValue / 10 == 4 || tileValue / 10 == 3;
+    protected boolean isPassable(int tileValue) {
+        return tileValue == 6 || tileValue / 100 == 5 || tileValue / 10 == 4;
     }
 
     protected boolean collidesWithPlayer(int playerX, int playerY) {
@@ -128,7 +128,7 @@ class Monster extends Enemy {
         int col = newX / tileSize;
         int row = newY / tileSize;
 
-        if (row >= 0 && col >= 0 && row < map.length && col < map[0].length && isObstacle(map[row][col])) {
+        if (row >= 0 && col >= 0 && row < map.length && col < map[0].length && isPassable(map[row][col])) {
             x = newX;
             y = newY;
         } else {
@@ -191,7 +191,8 @@ class Halo extends Enemy {
         animations.put("down", loadFrames("../graphics/images/enemies/halo/down"));
         animations.put("side", loadFrames("../graphics/images/enemies/halo/side"));
         this.direction = "side";
-        path = new LinkedList<>();
+        this.lastPathTime = System.currentTimeMillis();
+        this.path = new LinkedList<>();
     }
 
     @Override
@@ -199,47 +200,98 @@ class Halo extends Enemy {
         Point target = closestPlayer(player1X, player1Y, player2X, player2Y);
         if (target == null) return;
 
+        if (System.currentTimeMillis() - lastMoveTime < 275) return;
+
         int targetX = target.x;
         int targetY = target.y;
 
-        if (System.currentTimeMillis() - lastMoveTime < 275) return;
-
         if (System.currentTimeMillis() - lastPathTime > 5000 || path.isEmpty()) {
-            path = findPath(map, x / tileSize, y / tileSize, targetX / tileSize, targetY / tileSize);
+            Queue<Point> newPath = findPath(map, x / tileSize, y / tileSize, targetX / tileSize, targetY / tileSize);
+            path = (!newPath.isEmpty()) ? newPath : new LinkedList<>();
             lastPathTime = System.currentTimeMillis();
         }
 
         if (!path.isEmpty()) {
-            Point next = path.poll();
+            Point next = path.peek();
             if (next != null) {
-                int dx = next.x * tileSize - x;
-                int dy = next.y * tileSize - y;
+                int row = next.y;
+                int col = next.x;
 
-                if (dx != 0) {
-                    direction = "side";
-                    facingRight = dx > 0;
+                if (isPassable(map[row][col]) && Math.abs(col - x / tileSize) + Math.abs(row - y / tileSize) == 1) {
+                    path.poll();
+                    int dx = col - x / tileSize;
+                    int dy = row - y / tileSize;
+
+                    if (dx != 0) {
+                        direction = "side";
+                        facingRight = dx > 0;
+                    } else if (dy < 0) {
+                        direction = "up";
+                    } else {
+                        direction = "down";
+                    }
+
+                    Helper.restoreFruit(map, x / tileSize, y / tileSize);
+                    x = col * tileSize;
+                    y = row * tileSize;
+                    Helper.storeFruit(map, col, row);
+                    map[row][col] = 30;
+                    animFrame++;
+                    lastMoveTime = System.currentTimeMillis();
+                } else {
+                    path.clear();
                 }
-                else if (dy < 0) direction = "up";
-                else direction = "down";
-
-                Helper.restoreFruit(map, x / tileSize, y / tileSize);
-                x = next.x * tileSize;
-                y = next.y * tileSize;
             }
         }
 
-        Helper.storeFruit(map, x / tileSize, y / tileSize);
-        map[y / tileSize][x / tileSize] = 30;
-        animFrame++;
-        lastMoveTime = System.currentTimeMillis();
+        if (path.isEmpty()) {
+            randomWalk(map);
+        }
 
-        if (collidesWithPlayer(player1X, player1Y)) {
+        int haloCol = x / tileSize;
+        int haloRow = y / tileSize;
+
+        int player1Col = player1X / tileSize;
+        int player1Row = player1Y / tileSize;
+
+        int player2Col = player2X / tileSize;
+        int player2Row = player2Y / tileSize;
+
+        if (Math.abs(haloCol - player1Col) + Math.abs(haloRow - player1Row) <= 1) {
             Helper.player1Collided = true;
         }
-        if (collidesWithPlayer(player2X, player2Y)) {
+
+        if (Math.abs(haloCol - player2Col) + Math.abs(haloRow - player2Row) <= 1) {
             Helper.player2Collided = true;
         }
         Helper.checkGameOver();
+    }
+
+    private void randomWalk(int[][] map) {
+        int[][] directions = {{0,1},{1,0},{0,-1},{-1,0}};
+        List<int[]> shuffled = new ArrayList<>(Arrays.asList(directions));
+        java.util.Collections.shuffle(shuffled);
+
+        for (int[] d : shuffled) {
+            int newX = x + d[0] * tileSize;
+            int newY = y + d[1] * tileSize;
+            int row = newY / tileSize;
+            int col = newX / tileSize;
+
+            if (row >= 0 && col >= 0 && row < map.length && col < map[0].length && isPassable(map[row][col])) {
+                direction = (d[1] < 0) ? "up" : (d[1] > 0) ? "down" : "side";
+                facingRight = d[0] > 0;
+
+                Helper.restoreFruit(map, x / tileSize, y / tileSize);
+                x = newX;
+                y = newY;
+                Helper.storeFruit(map, x / tileSize, y / tileSize);
+                map[y / tileSize][x / tileSize] = 30;
+                animFrame++;
+                lastMoveTime = System.currentTimeMillis();
+                return;
+            }
+        }
     }
 
     private Queue<Point> findPath(int[][] map, int sx, int sy, int ex, int ey) {
@@ -259,7 +311,7 @@ class Halo extends Enemy {
             if (curr.x == ex && curr.y == ey) break;
             for (int[] d : dirs) {
                 int nx = curr.x + d[0], ny = curr.y + d[1];
-                if (nx >= 0 && ny >= 0 && nx < cols && ny < rows && !visited[ny][nx] && isObstacle(map[ny][nx])) {
+                if (nx >= 0 && ny >= 0 && nx < cols && ny < rows && !visited[ny][nx] && isPassable(map[ny][nx])) {
                     q.add(new Point(nx, ny));
                     visited[ny][nx] = true;
                     prev[ny][nx] = curr;
@@ -351,7 +403,7 @@ class IceBreaker extends Enemy {
                 breakRow = row;
                 breakCol = col;
                 breakFrames = loadFrames("../graphics/images/enemies/icebreaker/" + direction + "/break_ice");
-            } else if (isObstacle(nextTile)) {
+            } else if (isPassable(nextTile)) {
                 Helper.restoreFruit(map, x / tileSize, y / tileSize);
                 x = newX;
                 y = newY;
@@ -402,14 +454,20 @@ class Helper {
     public static boolean player2Collided = false;
 
     public static void checkGameOver() {
+        if (player1Collided & !GamePanel.player1GameOver) {
+            GamePanel.player1GameOver = true;
+        }
+        if (player2Collided & !GamePanel.player2GameOver) {
+            GamePanel.player2GameOver = true;
+        }
         if (player1Collided && player2Collided) {
-            System.out.println("Game Over");
+            GamePanel.gameOver = true;
         }
     }
 
     public static void storeFruit(int[][] map, int x, int y) {
         int currentTile = map[y][x];
-        if (currentTile / 100 == 5) {
+        if (currentTile / 100 == 5 || currentTile / 10 == 4) {
             Enemy.storedFruits.put(new Point(x, y), currentTile);
         }
     }
