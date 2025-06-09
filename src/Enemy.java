@@ -50,7 +50,6 @@ public abstract class Enemy {
     protected int[] directionVector() {
         return switch (direction) {
             case "up" -> new int[]{0, -1};
-            case "down" -> new int[]{0, 1};
             case "side" -> facingRight ? new int[]{1, 0} : new int[]{-1, 0};
             default -> new int[]{0, 1};
         };
@@ -77,7 +76,7 @@ public abstract class Enemy {
                     try {
                         frames.add(ImageIO.read(f));
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        System.out.println(e.getMessage());
                     }
                 }
             }
@@ -380,8 +379,15 @@ class IceBreaker extends Enemy {
         int targetX = target.x;
         int targetY = target.y;
 
-        int dx = Integer.compare(targetX, x);
-        int dy = Integer.compare(targetY, y);
+        int dx = 0, dy = 0;
+        int xDist = Math.abs(targetX - x);
+        int yDist = Math.abs(targetY - y);
+
+        if (xDist >= yDist) {
+            dx = Integer.compare(targetX, x);
+        } else {
+            dy = Integer.compare(targetY, y);
+        }
 
         if (dx != 0) {
             direction = "side";
@@ -428,6 +434,9 @@ class IceBreaker extends Enemy {
     public void draw(Graphics g) {
         if (breaking) {
             BufferedImage img = breakFrames.get((animFrame / 5) % breakFrames.size());
+            if (direction.equals("side") && !facingRight) {
+                img = flipImage(img);
+            }
             g.drawImage(img, x, y - tileSize, tileSize, tileSize * 2, null);
 
             if (breakRow >= 0 && breakCol >= 0) {
@@ -445,39 +454,6 @@ class IceBreaker extends Enemy {
                 }
                 g.drawImage(frame, x, y - tileSize, tileSize, tileSize * 2, null);
             }
-        }
-    }
-}
-
-class Helper {
-    public static boolean player1Collided = false;
-    public static boolean player2Collided = false;
-
-    public static void checkGameOver() {
-        if (player1Collided & !GamePanel.player1GameOver) {
-            GamePanel.player1GameOver = true;
-        }
-        if (player2Collided & !GamePanel.player2GameOver) {
-            GamePanel.player2GameOver = true;
-        }
-        if (player1Collided && player2Collided) {
-            GamePanel.gameOver = true;
-        }
-    }
-
-    public static void storeFruit(int[][] map, int x, int y) {
-        int currentTile = map[y][x];
-        if (currentTile / 100 == 5 || currentTile / 10 == 4) {
-            Enemy.storedFruits.put(new Point(x, y), currentTile);
-        }
-    }
-
-    public static void restoreFruit(int[][] map, int x, int y) {
-        Point key = new Point(x, y);
-        if (Enemy.storedFruits.containsKey(key)) {
-            map[y][x] = Enemy.storedFruits.remove(key);
-        } else {
-            map[y][x] = 6;
         }
     }
 }

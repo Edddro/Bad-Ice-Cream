@@ -12,11 +12,9 @@ import javax.imageio.ImageIO;
 
 public class LevelSelectScreen extends JPanel {
     private BufferedImage snowflakeImage, frameImage, unlockedImage, lockedImage, lockIcon, backButtonImage, dripImage;
-    private Font font, levelFont;
     private final List<Snowflake> snowflakes;
-    public final String[] levelStatus = new String[40];
+    public static final String[] levelStatus = new String[40];
     private final Rectangle backButtonRect = new Rectangle(230, 540, 200, 60);
-    private final Timer snowTimer;
 
     private static final int snowflakeRow = 9, snowflakeCol = 10, spacingX = 130, spacingY = 130;
     private int dripY = -600;
@@ -44,7 +42,7 @@ public class LevelSelectScreen extends JPanel {
             backButtonImage = ImageIO.read(new File("../graphics/images/map/buttons/button_frame.png"));
             dripImage = ImageIO.read(new File("../graphics/images/map/frames/drip_animation.png"));
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
         }
 
         snowflakes = new ArrayList<>();
@@ -56,10 +54,12 @@ public class LevelSelectScreen extends JPanel {
             }
         }
 
-        for (int i = 0; i < 40; i++) levelStatus[i] = "locked";
-        levelStatus[0] = "unlocked";
+        if (levelStatus[0] == null) {
+            for (int i = 0; i < 40; i++) levelStatus[i] = "locked";
+            levelStatus[0] = "unlocked";
+        }
 
-        snowTimer = new Timer(100, e -> {
+        Timer snowTimer = new Timer(100, _ -> {
             for (Snowflake flake : snowflakes) {
                 flake.position.x -= 2;
                 flake.position.y += 2;
@@ -108,19 +108,19 @@ public class LevelSelectScreen extends JPanel {
 
     private void transition(int level, String player1Flavour, String player2Flavour) {
         transitioning = true;
-        dripTimer = new Timer(15, new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                dripY += 10;
-                repaint();
-                if (dripY >= getHeight()) {
-                    dripTimer.stop();
-                    JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(LevelSelectScreen.this);
-                    topFrame.getContentPane().removeAll();
-                    Main.stopSound();
-                    topFrame.getContentPane().add(new GamePanel(level, player1Flavour, player2Flavour));
-                    topFrame.revalidate();
-                    topFrame.repaint();
-                }
+        dripTimer = new Timer(15, _ -> {
+            dripY += 10;
+            repaint();
+            if (dripY >= getHeight()) {
+                dripTimer.stop();
+                JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(LevelSelectScreen.this);
+                topFrame.getContentPane().removeAll();
+                Main.stopSound();
+                GamePanel game = new GamePanel(level, player1Flavour, player2Flavour);
+                topFrame.getContentPane().add(game);
+                topFrame.revalidate();
+                topFrame.repaint();
+                game.requestFocusInWindow();
             }
         });
         dripTimer.start();
@@ -148,7 +148,7 @@ public class LevelSelectScreen extends JPanel {
         g2d.drawImage(frameImage, frameX, frameY, frameW, frameH, null);
 
         String title = "level selection";
-        font = new Font("Arial", Font.BOLD, 28);
+        Font font = new Font("Arial", Font.BOLD, 28);
         int titleWidth = g2d.getFontMetrics().stringWidth(title);
         drawOutlinedText(g2d, title, (frameW - titleWidth) / 2, frameY + 40, font);
 
@@ -163,12 +163,11 @@ public class LevelSelectScreen extends JPanel {
 
             if (levelStatus[i].equals("locked")) {
                 int unlockedW = buttonSize + 20;
-                int unlockedH = buttonSize;
-                g2d.drawImage(unlockedImage, x, y, unlockedW, unlockedH, null);
+                g2d.drawImage(unlockedImage, x, y, unlockedW, buttonSize, null);
 
                 int margin = 8;
                 int lockedW = unlockedW - 2 * margin + 5;
-                int lockedH = unlockedH - 2 * margin;
+                int lockedH = buttonSize - 2 * margin;
                 int lockedX = x + margin;
                 int lockedY = y + margin;
 
@@ -177,14 +176,14 @@ public class LevelSelectScreen extends JPanel {
                 int iconSize = 28;
                 g2d.drawImage(lockIcon,
                         x + (unlockedW - iconSize) / 2,
-                        y + (unlockedH - iconSize) / 2,
+                        y + (buttonSize - iconSize) / 2,
                         iconSize, iconSize, null);
         } else {
                 g2d.drawImage(unlockedImage, x, y, buttonSize + 20, buttonSize, null);
                 String text = String.valueOf(i + 1);
                 int textWidth = g2d.getFontMetrics().stringWidth(text);
                 g2d.setColor(Color.WHITE);
-                levelFont = new Font("Arial", Font.PLAIN, 16);
+                Font levelFont = new Font("Arial", Font.PLAIN, 16);
                 drawOutlinedText(g2d, text, x + (buttonSize - textWidth) / 2 + 16, y + buttonSize / 2 + 6, levelFont);
             }
         }
@@ -206,7 +205,8 @@ public class LevelSelectScreen extends JPanel {
         g2d.drawString(text, x, y);
     }
 
-    public void updateLevel(int levelCompleted) {
+    public static void updateLevel(int levelCompleted) {
         levelStatus[levelCompleted] = "completed";
+        levelStatus[levelCompleted + 1] = "unlocked";
     }
 }

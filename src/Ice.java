@@ -17,7 +17,7 @@ public class Ice {
             try {
                 frames.add(ImageIO.read(new File(path + i + ".png")));
             } catch (IOException e) {
-                e.printStackTrace();
+                System.out.println(e.getMessage());
             }
         }
         return frames;
@@ -67,7 +67,7 @@ public class Ice {
                 int nextX = x + dx;
                 int nextY = y + dy;
 
-                if (!isValid(map, nextY, nextX) || !canFormIce(map[nextY][nextX])) {
+                if (isValid(map, nextY, nextX) || !canFormIce(map[nextY][nextX])) {
                     timer.cancel();
                     return;
                 }
@@ -75,7 +75,7 @@ public class Ice {
                 int currentTile = map[nextY][nextX];
                 Point key = new Point(nextX, nextY);
 
-                if (currentTile / 100 == 5 || (currentTile == 40 && GamePanel.player1GameOver) || (currentTile == 41 && GamePanel.player2GameOver)) {
+                if (currentTile / 100 == 5 || (currentTile == 40 && GameState.player1GameOver) || (currentTile == 41 && GameState.player2GameOver)) {
                     storedFruits.put(key, currentTile);
                 }
 
@@ -105,7 +105,7 @@ public class Ice {
                 int nextX = x + dx;
                 int nextY = y + dy;
 
-                if (!isValid(map, nextY, nextX) || map[nextY][nextX] != 2) {
+                if (isValid(map, nextY, nextX) || map[nextY][nextX] != 2) {
                     timer.cancel();
                     return;
                 }
@@ -139,10 +139,10 @@ public class Ice {
     }
 
     private static boolean isValid(int[][] map, int row, int col) {
-        return row >= 0 && col >= 0 && row < map.length && col < map[0].length;
+        return row < 0 || col < 0 || row >= map.length || col >= map[0].length;
     }
 
     private static boolean canFormIce(int tile) {
-        return tile / 100 == 5 || tile == 6 || (tile == 40 && GamePanel.player1GameOver) || (tile == 41 && GamePanel.player2GameOver);
+        return tile / 100 == 5 || tile == 6 || (tile == 40 && GameState.player1GameOver) || (tile == 41 && GameState.player2GameOver);
     }
 }

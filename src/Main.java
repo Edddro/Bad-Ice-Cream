@@ -12,30 +12,29 @@ public class Main {
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setLocationRelativeTo(null);
             frame.setResizable(false);
-
-            playSound("../graphics/sounds/MenuMusic.wav");
-
             MenuScreen menu = new MenuScreen();
             frame.add(menu);
             frame.setVisible(true);
         });
     }
 
-    public static void playSound(String filePath) {
+    public static void playSound(String filePath, boolean loop) {
         try {
             AudioInputStream audioIn = AudioSystem.getAudioInputStream(new File(filePath));
             clip = AudioSystem.getClip();
             clip.open(audioIn);
-            clip.loop(Clip.LOOP_CONTINUOUSLY);
+            if (loop) {
+                clip.loop(Clip.LOOP_CONTINUOUSLY);
+            }
             clip.start();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
         }
     }
 
     public static void stopSound() {
-        if(clip != null && clip.isRunning()) {
+        if (clip != null && clip.isRunning()) {
             clip.stop();
             clip.close();
         }

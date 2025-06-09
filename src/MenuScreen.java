@@ -14,8 +14,6 @@ public class MenuScreen extends JPanel {
     private BufferedImage homeImage, buttonImage, snowflakeImage, frameImage;
     private boolean showStartButton = true;
     private boolean flashOn = true;
-    private final Timer flashTimer;
-    private final Timer snowTimer;
     private Font customFont;
     private final List<Snowflake> snowflakes;
     private final int rows = 9;
@@ -23,7 +21,7 @@ public class MenuScreen extends JPanel {
     private final int spacingX = 130;
     private final int spacingY = 130;
 
-    private class Snowflake {
+    private static class Snowflake {
         Point position;
         double angle;
 
@@ -34,7 +32,8 @@ public class MenuScreen extends JPanel {
     }
 
     public MenuScreen() {
-
+        Main.stopSound();
+        Main.playSound("../graphics/sounds/MenuMusic.wav", true);
         try {
             homeImage = ImageIO.read(new File("../graphics/images/map/frames/home_screen_image.png"));
             buttonImage = ImageIO.read(new File("../graphics/images/map/buttons/button_frame_wide.png"));
@@ -44,7 +43,7 @@ public class MenuScreen extends JPanel {
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
             ge.registerFont(customFont);
         } catch (IOException | FontFormatException e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
             customFont = new Font("SansSerif", Font.BOLD, 24);
         }
 
@@ -109,8 +108,8 @@ public class MenuScreen extends JPanel {
                     int playWidth = fm.stringWidth(play);
                     int tutorialWidth = fm.stringWidth(tutorial);
 
-                    drawOutlinedText(g2d, play, getWidth()/2 - playWidth/2, frameY + 80, largeFont);
-                    drawOutlinedText(g2d, tutorial, getWidth()/2 - tutorialWidth/2, frameY + 140, largeFont);
+                    drawOutlinedText(g2d, play, getWidth() / 2 - playWidth / 2, frameY + 80, largeFont);
+                    drawOutlinedText(g2d, tutorial, getWidth() / 2 - tutorialWidth / 2, frameY + 140, largeFont);
                 }
             }
         };
@@ -140,7 +139,7 @@ public class MenuScreen extends JPanel {
             }
         });
 
-        flashTimer = new Timer(500, e -> {
+        Timer flashTimer = new Timer(500, _ -> {
             if (showStartButton) {
                 flashOn = !flashOn;
                 panel.repaint();
@@ -148,7 +147,7 @@ public class MenuScreen extends JPanel {
         });
         flashTimer.start();
 
-        snowTimer = new Timer(100, e -> {
+        Timer snowTimer = new Timer(100, _ -> {
             for (Snowflake flake : snowflakes) {
                 flake.position.x -= 2;
                 flake.position.y += 2;

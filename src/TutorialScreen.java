@@ -16,12 +16,11 @@ public class TutorialScreen extends JPanel {
 
     private BufferedImage frameImage, prevButtonImage, nextButtonImage, snowflakeImage;
     private final ImageIcon[] tutorialGifs = new ImageIcon[totalPages + 1];
-    private Font font;
 
     private final List<Snowflake> snowflakes;
     private final int rows = 9, cols = 10, spacingX = 130, spacingY = 130;
 
-    private class Snowflake {
+    private static class Snowflake {
         Point position;
         double angle;
 
@@ -43,7 +42,7 @@ public class TutorialScreen extends JPanel {
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
         }
 
         snowflakes = new ArrayList<>();
@@ -55,7 +54,7 @@ public class TutorialScreen extends JPanel {
             }
         }
 
-        Timer snowTimer = new Timer(100, e -> {
+        Timer snowTimer = new Timer(100, _ -> {
             for (Snowflake flake : snowflakes) {
                 flake.position.x -= 2;
                 flake.position.y += 2;
@@ -135,7 +134,7 @@ public class TutorialScreen extends JPanel {
             g2d.drawImage(nextButtonImage, centerX + 20, getHeight() - 120, buttonW, buttonH, null);
         }
 
-        font = new Font("Arial", Font.BOLD, 28);
+        Font font = new Font("Arial", Font.BOLD, 28);
         String[] description = {"Player 1 walk with the arrow keys.\nPlayer 2 walk with the WASD keys.", "Player 1 shoot with SPACE.\nPlayer 2 shoot with the F key.", "Shoot ice blocks to break them again.", "Pick up all fruit to complete the level.", "Avoid being flattened by the enemies!"};
         int frameCenterX = getWidth() / 2;
         int frameTextStartY = 440;

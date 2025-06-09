@@ -15,8 +15,6 @@ public class FlavourSelectScreen extends JPanel {
     private BufferedImage snowflakeImage, frameImage, flavourImage, backButtonImage, dripImage;
     private Font customFont;
     public List<Snowflake> snowflakes;
-    private final Timer snowTimer;
-    private final Timer animationTimer;
     private int hoveredFlavour1 = -1;
     private int hoveredFlavour2 = -1;
     public String player1Flavour = null;
@@ -37,7 +35,6 @@ public class FlavourSelectScreen extends JPanel {
     private final Rectangle backButtonRect = new Rectangle(230, 490, 200, 60);
 
     private int animFrame = 0;
-    private final int MAX_FRAMES = 3;
 
     private final int rows = 9;
     private final int cols = 10;
@@ -63,13 +60,13 @@ public class FlavourSelectScreen extends JPanel {
             dripImage = ImageIO.read(new File("../graphics/images/map/frames/drip_animation.png"));
             customFont = Font.createFont(Font.TRUETYPE_FONT, new File("../graphics/fonts/4409_FFF Neostandard Bold_8pt_st.ttf")).deriveFont(28f);
         } catch (IOException | FontFormatException e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
             customFont = new Font("SansSerif", Font.BOLD, 28);
         }
 
         for (String flavour : flavours) {
             File folder = new File("../graphics/images/map/frames/flavour_selection/" + flavour + "/");
-            File[] files = folder.listFiles((dir, name) -> name.endsWith(".png"));
+            File[] files = folder.listFiles((_, name) -> name.endsWith(".png"));
             if (files == null) continue;
             Arrays.sort(files);
             BufferedImage[] frames = new BufferedImage[files.length];
@@ -77,7 +74,7 @@ public class FlavourSelectScreen extends JPanel {
                 try {
                     frames[i] = ImageIO.read(files[i]);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    System.out.println(e.getMessage());
                 }
             }
             flavourAnimations.add(frames);
@@ -92,7 +89,7 @@ public class FlavourSelectScreen extends JPanel {
             }
         }
 
-        snowTimer = new Timer(100, e -> {
+        Timer snowTimer = new Timer(100, _ -> {
             for (Snowflake flake : snowflakes) {
                 flake.position.x -= 2;
                 flake.position.y += 2;
@@ -106,7 +103,7 @@ public class FlavourSelectScreen extends JPanel {
         });
         snowTimer.start();
 
-        animationTimer = new Timer(200, e -> {
+        Timer animationTimer = new Timer(200, _ -> {
             animFrame++;
             repaint();
         });
@@ -174,18 +171,16 @@ public class FlavourSelectScreen extends JPanel {
 
     private void transition() {
         transitioning = true;
-        dripTimer = new Timer(15, new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                dripY += 10;
-                repaint();
-                if (dripY >= getHeight()) {
-                    dripTimer.stop();
-                    JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(FlavourSelectScreen.this);
-                    topFrame.getContentPane().removeAll();
-                    topFrame.getContentPane().add(new LevelSelectScreen(player1Flavour, player2Flavour));
-                    topFrame.revalidate();
-                    topFrame.repaint();
-                }
+        dripTimer = new Timer(15, _ -> {
+            dripY += 10;
+            repaint();
+            if (dripY >= getHeight()) {
+                dripTimer.stop();
+                JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(FlavourSelectScreen.this);
+                topFrame.getContentPane().removeAll();
+                topFrame.getContentPane().add(new LevelSelectScreen(player1Flavour, player2Flavour));
+                topFrame.revalidate();
+                topFrame.repaint();
             }
         });
         dripTimer.start();
@@ -230,28 +225,11 @@ public class FlavourSelectScreen extends JPanel {
         drawOutlinedText(g2d, playerText, flavour1Rect.x, flavour1Rect.y + flavour1Rect.height - 5, customFont);
         drawOutlinedText(g2d, playerText2, flavour2Rect.x, flavour2Rect.y + flavour2Rect.height - 5, customFont);
 
-        BufferedImage flavour1 = flavourImage;
-        BufferedImage flavour2 = flavourImage;
+        BufferedImage flavour1;
+        BufferedImage flavour2;
 
-        if (player1Flavour != null) {
-            int index = Arrays.asList(flavours).indexOf(player1Flavour);
-            if (index != -1 && flavourAnimations.size() > index) {
-                BufferedImage[] frames = flavourAnimations.get(index);
-                flavour1 = frames.length > 1 ? frames[1] : frames[0];
-            }
-        } else if (hoveredFlavour1 != -1 && hoveredFlavour1 < flavourAnimations.size()) {
-            flavour1 = flavourAnimations.get(hoveredFlavour1)[animFrame % flavourAnimations.get(hoveredFlavour1).length];
-        }
-
-        if (player2Flavour != null) {
-            int index = Arrays.asList(flavours).indexOf(player2Flavour);
-            if (index != -1 && flavourAnimations.size() > index) {
-                BufferedImage[] frames = flavourAnimations.get(index);
-                flavour2 = frames.length > 1 ? frames[1] : frames[0];
-            }
-        } else if (hoveredFlavour2 != -1 && hoveredFlavour2 < flavourAnimations.size()) {
-            flavour2 = flavourAnimations.get(hoveredFlavour2)[animFrame % flavourAnimations.get(hoveredFlavour2).length];
-        }
+        flavour1 = getFlavourImage(player1Flavour, hoveredFlavour1, flavourAnimations, animFrame);
+        flavour2 = getFlavourImage(player2Flavour, hoveredFlavour2, flavourAnimations, animFrame);
 
         g2d.drawImage(flavour1, flavour1Rect.x, flavour1Rect.y - 40, flavour1Rect.width, flavour1Rect.height, null);
         g2d.drawImage(flavour2, flavour2Rect.x, flavour2Rect.y - 40, flavour2Rect.width, flavour2Rect.height, null);
@@ -262,5 +240,18 @@ public class FlavourSelectScreen extends JPanel {
         if (transitioning) {
             g2d.drawImage(dripImage, 0, dripY, 650, 1080, null);
         }
+    }
+
+    private BufferedImage getFlavourImage(String playerFlavour, int hoveredFlavour, List<BufferedImage[]> flavourAnimations, int animFrame) {
+        if (playerFlavour != null) {
+            int index = Arrays.asList(flavours).indexOf(playerFlavour);
+            if (index != -1 && flavourAnimations.size() > index) {
+                BufferedImage[] frames = flavourAnimations.get(index);
+                return frames.length > 1 ? frames[1] : frames[0];
+            }
+        } else if (hoveredFlavour != -1 && hoveredFlavour < flavourAnimations.size()) {
+            return flavourAnimations.get(hoveredFlavour)[animFrame % flavourAnimations.get(hoveredFlavour).length];
+        }
+        return flavourAnimations.getFirst()[0];
     }
 }
